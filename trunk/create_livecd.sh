@@ -182,12 +182,12 @@ function build_source() {
         [ -e ${ARCHIVEDIR}/${SQLZMA} ] || die "missing ${ARCHIVEDIR}/${SQLZMA}"
         [ -e ${ARCHIVEDIR}/${LZMASDK} ] || die "missing ${ARCHIVEDIR}/${LZMASDK}"
         [ -e ${ARCHIVEDIR}/${SQFSTOOLS} ] || die "missing ${ARCHIVEDIR}/${SQFSTOOLS}"
-        [ -e ${ARCHIVEDIR}/sqlzma-extra.tar.bz2 ] || die "missing ${ARCHIVEDIR}/sqlzma-extra.tar.bz2"
+        [ -e ${ARCHIVEDIR}/sqlzma-extra.tar.lzma ] || die "missing ${ARCHIVEDIR}/sqlzma-extra.tar.lzma"
 
         mkdir -p ${SOURCEDIR}/tmp/squashfs-lzma
         unpack ${ARCHIVEDIR}/${SQLZMA} ${SOURCEDIR}/tmp/squashfs-lzma
         unpack ${ARCHIVEDIR}/${SQFSTOOLS} ${SOURCEDIR}/tmp/squashfs-lzma
-        unpack ${ARCHIVEDIR}/sqlzma-extra.tar.bz2 ${SOURCEDIR}/tmp/squashfs-lzma
+        unpack ${ARCHIVEDIR}/sqlzma-extra.tar.lzma ${SOURCEDIR}/tmp/squashfs-lzma
         mkdir -p ${SOURCEDIR}/tmp/squashfs-lzma/lzmasdk
         unpack ${ARCHIVEDIR}/${LZMASDK} ${SOURCEDIR}/tmp/squashfs-lzma/lzmasdk
 
