@@ -1,0 +1,22 @@
+CAIX 0.0.1
+
+The CAIX LiveCD is based on gentoo linux (http://www.gentoo.org).
+
+How to build the LiveCD
+-----------------------
+
+You need the following prerequisites:
+
+  stage3-x86-2008.0.tar.bz2  
+
+You can download it from a suitable site in listed in http://www.gentoo.org/main/en/mirrors2.xml.
+
+If you would like to build an lzma compressed initramfs image you need the following packages:
+
+  lzma457.tar.bz2
+  sqlzma3.3-457-2.tar.bz2
+  squashfs3.3.tar.gz
+
+You can download these packages from  http://www.squashfs-lzma.org  and put them in the dist 
+subdirectry or run the script getlzma-pkgs.sh which is part of this source tree.
+
