@@ -1,0 +1,17 @@
+
+Welcome to CSP MiniCA LiveCD.
+
+Please mount your writeable device (e. g. USB-stick) containing
+the CA-data at  /mnt/ca  and the writeable device for exporting
+certificates at  /mnt/cert_export.
+If you choose other another mount points as  /mnt/ca  for your
+CA-data, you must redefine the environment variable CSPHOME.
+
+Home of CSP at Stockholm University: 
+    http://devel.it.su.se/pub/jsp/polopoly.jsp?d=1026&a=3290
+
+Manual for configuration and usage of CSP:    
+    http://devel.it.su.se/content/1/c4/32/90/cspguide.pdf
+
+Type  csp  to run CSP.
+

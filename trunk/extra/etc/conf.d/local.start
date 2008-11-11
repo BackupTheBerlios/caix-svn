@@ -1,0 +1,2 @@
+mkdir -p /mnt/ca >/dev/null 2>/dev/null
+mkdir -p /mnt/cert_export >/dev/null 2>/dev/null
