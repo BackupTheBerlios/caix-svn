@@ -158,8 +158,8 @@ function build_source() {
     safe_mount /dev ${SOURCEDIR}/dev
     safe_mount /sys ${SOURCEDIR}/sys 
 
-    mkdir -p ${SOURCEDIR}/usr/portage/distfiles
-    echo "SNAPSHOT: ${SNAPSHOT}"
+    mkdir -p ${SOURCEDIR}/usr/portage
+
     if [ "${SNAPSHOT}" == "" ]; then
         safe_mount /usr/portage ${SOURCEDIR}/usr/portage
     else
@@ -169,6 +169,8 @@ function build_source() {
     DISTDIR=$(source /etc/make.conf; echo $DISTDIR)
     [ "$DISTDIR" == "" ] && DISTDIR=/usr/portage/distfiles
 
+    mkdir -p ${SOURCEDIR}/usr/portage/distfiles
+
     safe_mount $DISTDIR ${SOURCEDIR}/usr/portage/distfiles
 
     ##############################################################################
@@ -176,7 +178,7 @@ function build_source() {
     #    copy extra files                                                        #
     #                                                                            #
     ##############################################################################
-    rsync -a ${WORKDIR}/extra/ ${SOURCEDIR}/
+    rsync -a --exclude ".svn" --exclude ".svn/*" ${WORKDIR}/extra/ ${SOURCEDIR}/
 
     if [ "${SQUASHFS_LZMA}" == "yes" ]; then
         [ -e ${ARCHIVEDIR}/${SQLZMA} ] || die "missing ${ARCHIVEDIR}/${SQLZMA}"
@@ -213,7 +215,7 @@ function build_source() {
 
     [ -e ${SOURCEDIR}/error.occured ] && die "something went wrong in chroot-environment"
 
-    rsync -a ${WORKDIR}/extra/ ${SOURCEDIR}/
+    rsync -a --exclude ".svn" --exclude ".svn/*"${WORKDIR}/extra/ ${SOURCEDIR}/
 }
 
 function check_squashfs_lzma() {
@@ -243,7 +245,7 @@ function create_squashfs() {
           --exclude "usr/share/doc" --exclude "var/db" --exclude "usr/src" \
           --exclude "usr/include" --exclude "usr/lib/pkgconfig" \
           --exclude "proc/*" --exclude "sys/*" --exclude "root/chroot_build.sh" \
-          --exclude "etc/kernels" \
+          --exclude "etc/kernels" --exclude ".svn" --exclude ".svn/*" \
           ${SOURCEDIR}/ ${TARGETDIR}/files/
 
     ##############################################################################
@@ -310,13 +312,14 @@ function create_iso () {
     #                                                                            #
     ##############################################################################
     if [ "${BOOTLOADER}" == "isolinux" ]; then
-        rsync -av ${WORKDIR}/isolinux ${TARGETDIR}
+        rsync -av --exclude ".svn" --exclude ".svn/*" ${WORKDIR}/isolinux ${TARGETDIR}
+
         cp /usr/lib/syslinux/isolinux.bin ${TARGETDIR}/isolinux
         cp ${SOURCEDIR}/boot/kernel-genkernel-x86* ${TARGETDIR}/isolinux/vmlinuz
         cp ${SOURCEDIR}/boot/initramfs-genkernel-x86* ${TARGETDIR}/isolinux/initrd.igz
         cp /boot/memtest86plus/memtest.bin ${TARGETDIR}/isolinux
     else
-        rsync -av ${SOURCEDIR}/boot ${TARGETDIR}
+        rsync -av --exclude ".svn" --exclude ".svn/*" ${SOURCEDIR}/boot ${TARGETDIR}
     fi
 
     touch ${TARGETDIR}/livecd
