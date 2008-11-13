@@ -1,6 +1,5 @@
-# Copyright 1999-2007 Gentoo Foundation
+# Copyright 2008 Andreas Leipelt
 # Distributed under the terms of the GNU General Public License v2
-# $Header: $
 
 inherit perl-module
 

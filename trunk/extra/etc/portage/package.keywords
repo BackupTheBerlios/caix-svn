@@ -1,8 +1,6 @@
 sys-fs/dmraid ~x86
 sys-fs/fuse ~x86
-sys-apps/gli ~x86
 sys-kernel/gentoo-sources ~x86
 sys-kernel/genkernel ~x86
-dev-libs/newt ~x86
 app-crypt/CSP ~x86
 dev-perl/Term-Prompt ~x86
