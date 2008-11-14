@@ -1,0 +1,44 @@
+Howto for CAIX 0.0.1
+--------------------
+
+The CA management is done with the CSP (Certificate Service Provider)
+software in version 0.34 of the Stockholm Universíty:
+
+    http://devel.it.su.se/pub/jsp/polopoly.jsp?d=1026&a=3290 .
+
+Please read the cspguide
+
+    http://devel.it.su.se/content/1/c4/32/90/cspguide.pdf .
+   
+
+Prerequistes
+------------
+
+What you need: Two writeable devices like externel USB- or firewire-disks
+or memorysticks. Two USB-sticks are ideal. Let us call the first stick
+the CA-stick and the second one exportstick. Mount the (empty) CA-stick 
+at /mnt/ca:
+
+  mount /dev/sdX1 /mnt/ca    (where X is the drive letter) 
+
+Mount the exportstick at /mnt/cert_export:
+
+  mount /dev/sdY1 /mnt/ca    (where Y is the drive letter) 
+
+Please adapt the commands to your situation. We will use prescribed 
+terminology 'CA-stick' and 'exportstick'.
+
+Initialisation of the CA
+------------------------
+
+Let as assume that your CA should have the imaginative name 'MyCA'. The
+necessary CSP environment variable 'CSPHOME' is predefined in CAIX and
+points to /mnt/ca . The CA is created with the command
+
+   csp MyCA create -
+
+All CA data will be written to /mnt/ca and hence to your CA-stick. Keep
+an eye on this stick! The security of your CA depends on it. Put it in 
+a safe or another safe place if you do not need it. You need it only for
+CA management tasks like certificate requests nd so on.
+
