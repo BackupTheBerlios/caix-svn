@@ -12,6 +12,7 @@ function squashfs_lzma_support() {
     KERNEL_VER=${s:6}
 
     if [ -e /tmp/squashfs-lzma ]; then
+        puts "OK 1\n"
         cd /tmp/squashfs-lzma
         ./sqmake.sh ${KERNEL_VER}
         [ "$?" != "0" ] && die
@@ -55,6 +56,12 @@ genkernel --dmraid --evms --luks --lvm --kernel-config=/etc/kernels/${KERNEL_CON
 [ "$?" != "0" ] && die
 
 squashfs_lzma_support
+
+emerge -kuDN system
+[ "$?" != "0" ] && die
+
+emerge -kuDN world
+[ "$?" != "0" ] && die
 
 emerge -kuDN ${PKGLIST}
 [ "$?" != "0" ] && die
