@@ -200,26 +200,27 @@ function build_source() {
     ##############################################################################
     rsync -a --exclude ".svn" --exclude ".svn/*" ${WORKDIR}/extra/ ${SOURCEDIR}/
 
+    if [ "${KERNEL}" != "" ]; then
+      echo "<sys-kernel/${KERNEL}" >> /etc/portage/package.mask
+      echo ">sys-kernel/${KERNEL}" >> /etc/portage/package.mask
+    fi
+
     if [ "${SQUASHFS_LZMA}" == "yes" ]; then
         [ -e ${ARCHIVEDIR}/${SQLZMA} ] || die "missing ${ARCHIVEDIR}/${SQLZMA}"
         [ -e ${ARCHIVEDIR}/${LZMASDK} ] || die "missing ${ARCHIVEDIR}/${LZMASDK}"
         [ -e ${ARCHIVEDIR}/${SQFSTOOLS} ] || die "missing ${ARCHIVEDIR}/${SQFSTOOLS}"
-        [ -e ${ARCHIVEDIR}/sqlzma-extra.tar.lzma ] || die "missing ${ARCHIVEDIR}/sqlzma-extra.tar.lzma"
+        [ -e ${ARCHIVEDIR}/sqcompile.sh ] || die "missing ${ARCHIVEDIR}/sqcompile.sh"
+        [ -e ${ARCHIVEDIR}/sqmakefile.patch ] || die "missing ${ARCHIVEDIR}/sqmakefile.patch"
 
         mkdir -p ${SOURCEDIR}/tmp/squashfs-lzma
         unpack ${ARCHIVEDIR}/${SQLZMA} ${SOURCEDIR}/tmp/squashfs-lzma
         unpack ${ARCHIVEDIR}/${SQFSTOOLS} ${SOURCEDIR}/tmp/squashfs-lzma
-        unpack ${ARCHIVEDIR}/sqlzma-extra.tar.lzma ${SOURCEDIR}/tmp/squashfs-lzma
         mkdir -p ${SOURCEDIR}/tmp/squashfs-lzma/lzmasdk
         unpack ${ARCHIVEDIR}/${LZMASDK} ${SOURCEDIR}/tmp/squashfs-lzma/lzmasdk
-
-        pushd .
-        cd ${SOURCEDIR}/tmp/squashfs-lzma/lzmasdk
-        patch -p1 <../sqlzma1-449.patch
-        cd ${SOURCEDIR}/tmp/squashfs-lzma/squashfs3.3
-        patch -p1 <../sqlzma2u-3.3.patch
-        popd
+        cp ${ARCHIVEDIR}/sqcompile.sh ${SOURCEDIR}/tmp/squashfs-lzma
+        cp ${ARCHIVEDIR}/sqmakefile.patch ${SOURCEDIR}/tmp/squashfs-lzma
     fi
+
     cp /etc/resolv.conf ${SOURCEDIR}/etc
     cp chroot_build.sh ${SOURCEDIR}/root
     chmod +x ${SOURCEDIR}/root/chroot_build.sh
@@ -249,7 +250,9 @@ function check_squashfs_lzma() {
 
 function create_squashfs() {
     empty_dir ${TARGETDIR}
-    mkdir -p ${TARGETDIR}/files
+    TGTFILES=${TARGETDIR}/files
+
+    mkdir -p ${TGTFILES}
 
     ##############################################################################
     #                                                                            #
@@ -257,7 +260,7 @@ function create_squashfs() {
     #                                                                            #
     ##############################################################################
 
-    echo "copying ${SOURCEDIR} to ${TARGETDIR}/files"
+    echo "copying ${SOURCEDIR} to ${TGTFILES}"
     rsync --delete-after --delete-excluded --archive --hard-links \
           --exclude "tmp/*" --exclude "var/tmp/*" --exclude "var/cache/*" \
           --exclude "*.h" --exclude "*.a" --exclude "*.la" --exclude ".keep*" \
@@ -266,31 +269,44 @@ function create_squashfs() {
           --exclude "usr/include" --exclude "usr/lib/pkgconfig" \
           --exclude "proc/*" --exclude "sys/*" --exclude "root/chroot_build.sh" \
           --exclude "etc/kernels" --exclude ".svn" --exclude ".svn/*" \
-          ${SOURCEDIR}/ ${TARGETDIR}/files/
+          ${SOURCEDIR}/ ${TGTFILES}/
+
+    ##############################################################################
+    #                                                                            #
+    #    copy utilities to the build environment                                 #
+    #                                                                            #
+    ##############################################################################
+    mkdir -p ${WORKDIR}/bin
+    [ -e ${WORKDIR}/isolinux/isolinux.bin ] || cp ${SOURCEDIR}/usr/share/syslinux/isolinux.bin \
+                                               ${WORKDIR}/isolinux 
+    [ -e ${WORKDIR}/bin/mksquashfs ] || cp ${SOURCEDIR}/tmp/squashfs-lzma/squashfs3.3/squashfs-tools/mksquashfs \
+                                        ${WORKDIR}/bin/
+    [ -e ${WORKDIR}/bin/unsquashfs ] || cp ${SOURCEDIR}/tmp/squashfs-lzma/squashfs3.3/squashfs-tools/unsquashfs \
+                                        ${WORKDIR}/bin/
 
     ##############################################################################
     #                                                                            #
     #    clean the squashfs target                                               #
     #                                                                            #
     ##############################################################################
-    echo "cleaning ${TARGETDIR}/files"
+    echo "cleaning ${TGTFILES}"
     for d in `echo ${DIRS_TO_REMOVE}`; do
-        rm -rf ${TARGETDIR}/files/${d}
+        rm -rf ${TGTFILES}/${d}
     done
-    rm -f ${TARGETDIR}/files/etc/mtab
-    touch ${TARGETDIR}/files/etc/mtab
-    rm -f ${TARGETDIR}/files/root/.bash_history
-    mkdir -p ${TARGETDIR}/files/var/log
-    mkdir -p ${TARGETDIR}/files/var/lib/dhcp
+    rm -f ${TGTFILES}/etc/mtab
+    touch ${TGTFILES}/etc/mtab
+    rm -f ${TGTFILES}/root/.bash_history
+    mkdir -p ${TGTFILES}/var/log
+    mkdir -p ${TGTFILES}/var/lib/dhcp
 
     dirlist=""
     for i in `cat ${SOURCEDIR}/root/clean.list`; do
-        if [ -f ${TARGETDIR}/files/${i} ]; then
-            rm -f ${TARGETDIR}/files/${i}
-        elif [ -L ${TARGETDIR}/files/${i} ]; then
-            rm -f ${TARGETDIR}/files/${i}
-        elif [ -d ${TARGETDIR}/files/${i} ]; then
-            dirlist="${dirlist} ${TARGETDIR}/files/${i}"
+        if [ -f ${TGTFILES}/${i} ]; then
+            rm -f ${TGTFILES}/${i}
+        elif [ -L ${TGTFILES}/${i} ]; then
+            rm -f ${TGTFILES}/${i}
+        elif [ -d ${TGTFILES}/${i} ]; then
+            dirlist="${dirlist} ${TGTFILES}/${i}"
         fi
     done
 
@@ -303,9 +319,9 @@ function create_squashfs() {
         done
     done
 
-    rm ${TARGETDIR}/files/root/clean.list
-    rm ${TARGETDIR}/files/root/livecd.conf
-    mkdir -p ${TARGETDIR}/files/var/log
+    rm ${TGTFILES}/root/clean.list
+    rm ${TGTFILES}/root/livecd.conf
+    mkdir -p ${TGTFILES}/var/log
 
     ##############################################################################
     #                                                                            #
@@ -315,13 +331,13 @@ function create_squashfs() {
     rm -f ${TARGETDIR}/livecd.squashfs
     if [ "${SQUASHFS_LZMA}" == "yes" ]; then
         check_squashfs_lzma || die "mksquashfs does not support lzma. Please install a new version"
-        mksquashfs ${TARGETDIR}/files/ ${TARGETDIR}/livecd.squashfs -noappend
+        mksquashfs ${TGTFILES}/ ${TARGETDIR}/livecd.squashfs -noappend
     else
         soptions="-noappend"
         if check_squashfs_lzma; then
             soptions="${soptions} -nolzma"
         fi
-        mksquashfs ${TARGETDIR}/files/ ${TARGETDIR}/livecd.squashfs ${soptions}
+        mksquashfs ${TGTFILES}/ ${TARGETDIR}/livecd.squashfs ${soptions}
     fi
 }
 

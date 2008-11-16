@@ -8,13 +8,9 @@ function die() {
 }
 
 function squashfs_lzma_support() {
-    s=$(readlink /usr/src/linux)
-    KERNEL_VER=${s:6}
-
     if [ -e /tmp/squashfs-lzma ]; then
-        puts "OK 1\n"
         cd /tmp/squashfs-lzma
-        ./sqmake.sh ${KERNEL_VER}
+        ./sqcompile.sh
         [ "$?" != "0" ] && die
     fi
 
@@ -51,8 +47,19 @@ else
 fi
 [ "$?" != "0" ] && die
 
+#rm -f /usr/src/linux
+#KERNEL_VERSION=${KERNEL:15}
+#KERNEL_VERSION_MAJOR=$(echo ${KERNEL_VERSION} | cut -d "-" -f 1)
+#KERNEL_PATH="/usr/src/linux-${KERNEL_VERSION_MAJOR}-gentoo"
+
+#if [ $(echo ${KERNEL_VERSION} | grep -s "-") ]; then
+#  KERNEL_REVISION=$(echo ${KERNEL_VERSION} | cut -d "-" -f 2)
+#  KERNEL_PATH="${KERNEL_PATH}-${KERNEL_REVISION}"
+#fi
+
+#ln -s ${KERNEL_PATH} /usr/src/linux
+
 genkernel --dmraid --evms --luks --lvm --kernel-config=/etc/kernels/${KERNEL_CONF} all
-#genkernel --dmraid --evms --luks --lvm all
 [ "$?" != "0" ] && die
 
 squashfs_lzma_support
