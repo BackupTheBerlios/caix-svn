@@ -1,0 +1,30 @@
+#!/bin/sh
+
+if [ "$1" == "" ]; then
+    echo "usage: csp-create <ca name>"
+    echo "       e. g. csp-create myca"
+    exit 1
+fi
+
+function die() {
+    echo "Error: $1"
+    exit 1
+}
+
+mount | grep -q /mnt/ca
+[ "$?" != "0" ] && die "No device mounted at /mnt/ca ."
+
+cp -r /usr/share/CSP*/ca/* ${CSPHOME}
+[ "$?" != "0" ] && die "Can not copy CSP data to ${CSPHOME} ."
+
+csp $1 create
+
+
+
+
+
+
+
+
+
+
