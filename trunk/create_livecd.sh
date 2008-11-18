@@ -201,8 +201,8 @@ function build_source() {
     rsync -a --exclude ".svn" --exclude ".svn/*" ${WORKDIR}/extra/ ${SOURCEDIR}/
 
     if [ "${KERNEL}" != "" ]; then
-      echo "<sys-kernel/${KERNEL}" >> /etc/portage/package.mask
-      echo ">sys-kernel/${KERNEL}" >> /etc/portage/package.mask
+      echo "<sys-kernel/${KERNEL}" >> ${SOURCEDIR}/etc/portage/package.mask
+      echo ">sys-kernel/${KERNEL}" >> ${SOURCEDIR}/etc/portage/package.mask
     fi
 
     if [ "${SQUASHFS_LZMA}" == "yes" ]; then
@@ -234,19 +234,14 @@ function build_source() {
     chroot ${SOURCEDIR} /root/chroot_build.sh
     unmount_all
 
-    [ -e ${SOURCEDIR}/error.occured ] && die "something went wrong in chroot-environment"
-
-    rsync -a --exclude ".svn" --exclude ".svn/*"${WORKDIR}/extra/ ${SOURCEDIR}/
-}
-
-function check_squashfs_lzma() {
-    mksquashfs 2>&1 | grep -qs lzma
-    if [ "$?" == "0" ]; then
-        true
-    else
-        false
+    if [ -e ${SOURCEDIR}/error.occured ]; then
+       msg=$(cat ${SOURCEDIR}/error.occured)
+       die "(chroot environment) ${msg}"
     fi
+
+    rsync -a --exclude ".svn" --exclude ".svn/*" ${WORKDIR}/extra/ ${SOURCEDIR}/
 }
+
 
 function create_squashfs() {
     empty_dir ${TARGETDIR}
@@ -277,8 +272,8 @@ function create_squashfs() {
     #                                                                            #
     ##############################################################################
     mkdir -p ${WORKDIR}/bin
-    [ -e ${WORKDIR}/isolinux/isolinux.bin ] || cp ${SOURCEDIR}/usr/share/syslinux/isolinux.bin \
-                                               ${WORKDIR}/isolinux 
+    [ -e ${WORKDIR}/isolinux/isolinux.bin ] || cp ${SOURCEDIR}/usr/lib/syslinux/isolinux.bin \
+                                               ${WORKDIR}/isolinux
     [ -e ${WORKDIR}/bin/mksquashfs ] || cp ${SOURCEDIR}/tmp/squashfs-lzma/squashfs3.3/squashfs-tools/mksquashfs \
                                         ${WORKDIR}/bin/
     [ -e ${WORKDIR}/bin/unsquashfs ] || cp ${SOURCEDIR}/tmp/squashfs-lzma/squashfs3.3/squashfs-tools/unsquashfs \
@@ -321,6 +316,20 @@ function create_squashfs() {
 
     rm ${TGTFILES}/root/clean.list
     rm ${TGTFILES}/root/livecd.conf
+
+    #
+    # remove broken links
+    #
+    symlinks=$(find ${TGTFILES} -type l)
+    for l in ${symlinks}; do
+        x=$(readlink -e ${l})
+        if [ "${x}" == "" ]; then
+           y=$(readlink ${l})
+           x="${TGTFILES}${y}"
+        fi
+        [ -e ${x} ] || rm -f ${l}
+    done
+
     mkdir -p ${TGTFILES}/var/log
 
     ##############################################################################
@@ -330,14 +339,9 @@ function create_squashfs() {
     ##############################################################################
     rm -f ${TARGETDIR}/livecd.squashfs
     if [ "${SQUASHFS_LZMA}" == "yes" ]; then
-        check_squashfs_lzma || die "mksquashfs does not support lzma. Please install a new version"
-        mksquashfs ${TGTFILES}/ ${TARGETDIR}/livecd.squashfs -noappend
+        ${WORKDIR}/bin/mksquashfs ${TGTFILES}/ ${TARGETDIR}/livecd.squashfs -noappend
     else
-        soptions="-noappend"
-        if check_squashfs_lzma; then
-            soptions="${soptions} -nolzma"
-        fi
-        mksquashfs ${TGTFILES}/ ${TARGETDIR}/livecd.squashfs ${soptions}
+        ${WORKDIR}/bin/mksquashfs ${TGTFILES}/ ${TARGETDIR}/livecd.squashfs -noappend -nolzma
     fi
 }
 
@@ -348,14 +352,13 @@ function create_iso () {
     #                                                                            #
     ##############################################################################
     if [ "${BOOTLOADER}" == "isolinux" ]; then
-        rsync -av --exclude ".svn" --exclude ".svn/*" ${WORKDIR}/isolinux ${TARGETDIR}
+        rsync -a --exclude ".svn" --exclude ".svn/*" ${WORKDIR}/isolinux ${TARGETDIR}
 
-        cp /usr/lib/syslinux/isolinux.bin ${TARGETDIR}/isolinux
         cp ${SOURCEDIR}/boot/kernel-genkernel-x86* ${TARGETDIR}/isolinux/vmlinuz
         cp ${SOURCEDIR}/boot/initramfs-genkernel-x86* ${TARGETDIR}/isolinux/initrd.igz
         #cp /boot/memtest86plus/memtest.bin ${TARGETDIR}/isolinux
     else
-        rsync -av --exclude ".svn" --exclude ".svn/*" ${SOURCEDIR}/boot ${TARGETDIR}
+        rsync -a --exclude ".svn" --exclude ".svn/*" ${SOURCEDIR}/boot ${TARGETDIR}
     fi
 
     touch ${TARGETDIR}/livecd
@@ -383,10 +386,6 @@ function create_iso () {
 [ -e "${WORKDIR}/create_livecd.sh" ] || die "You must run 'create_livecd.sh' in its directory"
 [ -e "${WORKDIR}/livecd.conf" ] || die "Missing 'livecd.conf'"
 source ${WORKDIR}/livecd.conf
-
-if check_squashfs_lzma && [ "SQUASHFS_LZMA" == "yes" ]; then
-    die "mksquashfs does not support lzma. Please disable with -l option or install a suitable squashfs utils."
-fi
 
 [ "${CLEAN_SOURCE}" == "yes" ] && build_source
 [ "${CREATE_SQUASH}" == "yes" ] && create_squashfs

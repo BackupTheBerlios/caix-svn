@@ -26,12 +26,14 @@ src_install() {
     doins "${S}/ca/etc/types.txt"
     doins "${S}/ca/etc/crl_extensions.conf"
     doins "${S}/ca/etc/oids.conf"
+    doins "${FILESDIR}/extensions.conf"
+    insinto /usr/share/${P}/ca/etc/public_html
     doins "${S}/ca/etc/public_html/index.html.mpp"
+    insinto /usr/share/${P}/ca/etc/public_html/certs
     doins "${S}/ca/etc/public_html/certs/expired.html.mpp"
     doins "${S}/ca/etc/public_html/certs/valid.html.mpp"
     doins "${S}/ca/etc/public_html/certs/revoked.html.mpp"
     doins "${S}/ca/etc/public_html/certs/cert.html.mpp"
     doins "${S}/ca/etc/public_html/certs/index.html.mpp"
-    doins "${FILESDIR}/extensions.conf"
     ln -sf /usr/share/${P} /usr/share/CSP
 }
