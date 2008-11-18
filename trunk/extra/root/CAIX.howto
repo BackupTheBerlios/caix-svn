@@ -1,16 +1,18 @@
-Howto for CAIX 0.0.1
---------------------
+Howto for CAIX 0.0.1 (http://caix.berlios.de)
+---------------------------------------------
 
 The CA management is done with the CSP (Certificate Service Provider)
-software in version 0.34 of the Stockholm Universíty:
+software 0.34 of the Stockholm University:
 
     http://devel.it.su.se/pub/jsp/polopoly.jsp?d=1026&a=3290 .
 
-Please read the cspguide
+Please download and read the CSP guide
 
     http://devel.it.su.se/content/1/c4/32/90/cspguide.pdf .
-   
 
+We will refer to it.
+
+   
 Prerequistes
 ------------
 
@@ -19,13 +21,13 @@ or memorysticks. Two USB-sticks are ideal. Let us call the first stick
 the CA-stick and the second one exportstick. Mount the (empty) CA-stick 
 at /mnt/ca:
 
-  mount /dev/sdX1 /mnt/ca    (where X is the drive letter) 
+  mount /dev/sdX1 /mnt/ca             (where X is the drive letter) 
 
 Mount the exportstick at /mnt/cert_export:
 
-  mount /dev/sdY1 /mnt/ca    (where Y is the drive letter) 
+  mount /dev/sdY1 /mnt/cert_export    (where Y is the drive letter) 
 
-Please adapt the commands to your situation. We will use prescribed 
+Please adapt the commands to your situation. We will use the prescribed 
 terminology 'CA-stick' and 'exportstick'.
 
 Initialisation of the CA
@@ -35,10 +37,30 @@ Let as assume that your CA should have the imaginative name 'MyCA'. The
 necessary CSP environment variable 'CSPHOME' is predefined in CAIX and
 points to /mnt/ca . The CA is created with the command
 
-   csp MyCA create -
+  csp-create MyCA .
 
-All CA data will be written to /mnt/ca and hence to your CA-stick. Keep
-an eye on this stick! The security of your CA depends on it. Put it in 
-a safe or another safe place if you do not need it. You need it only for
-CA management tasks like certificate requests nd so on.
+This comamnd will copy all necessary CSP data (as described in section 
+3 of the CSP guide) and will run 'csp MyCA create'.
+So you can go further with section 4.1 or 4.2 in the CSP guide.
+
+CA operations
+-------------
+
+Please read the CSP guide.
+
+Exporting certificates
+----------------------
+
+The command
+
+  csp MyCA genpublic --export=/mnt/cert_export
+
+will write all public certificates and the public website to your
+exportstick. For details refer to section 5.4.2 of the CSP guide.
+
+
+
+Keep an eye on the CA-stick! The security of your CA depends on it. Put it in 
+a safe or another safe place if you do not need it. You need it only for CA 
+operations.
 
