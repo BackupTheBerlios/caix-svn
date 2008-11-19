@@ -126,12 +126,17 @@ function configure_system() {
     sed s/"\\\.sh"/"\\\.\(sh|cfg|conf|config|cnf|ini\)"/ -i /usr/share/nano/sh.nanorc
 }
 
+function prepare() {
+    env-update
+    source /etc/profile
+    emerge -C ss com_err e2fsprogs e2fsprogs-libs
+    emerge e2fsprogs
+}
+
 #
 #  main
 #
-env-update
-source /etc/profile
-
+prepare
 build_kernel
 bring_in_packages
 configure_system
