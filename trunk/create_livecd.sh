@@ -34,21 +34,25 @@ BOOTLOADER="isolinux"
 CLEAN_SOURCE="yes"
 CREATE_SQUASH="yes"
 CREATE_ISO="yes"
-SQUASHFS_LZMA="yes"
+CREATE_ARCHIVE="no"
+USE_KERN_PKG="yes"
 SNAPSHOT=""
+DEVICETYPE="CD"
+LIVETYPE="livecd"
 
 source "livecd.conf"
 
 function usage() {
     echo ""
-    echo "Usage: $0 -bhilnosv"
+    echo "Usage: $0 -bdhinosv"
     echo ""
     echo "      Options are"
     echo ""
-    echo "        -b <bootloader>        : Specify bootloader (grub|isolinux). Default is '${BOOTLOADER}'."
+    echo "        -b <bootloader>        : Specify bootloader (grub|isolinux|syslinux). Default is '${BOOTLOADER}'."
+    echo "        -d <device type>       : Specify the device (CD|USB). Default is '${DEVICETYPE}'."
     echo "        -h                     : Show this help."
-    echo "        -i <ISO creation>      : (yes|no). Default is 'yes'."
-    echo "        -l <SquashFS lzma>     : Use LZMA compression for squashfs (yes|no). Default is '${SQUASHFS_LZMA}'."
+    echo "        -i <ISO creation>      : (yes|no). Default is '${CREATE_ISO}'."
+    echo "        -k <kernel package>    : (yes|no). Use a compiled kernel from a previous run. Default is '${USE_KERN_PKG}'."
     echo "        -n                     : Do not clean the source directory."
     echo "        -o <ISO name>          : Set the name for the created ISO. Default is '${ISONAME}'."
     echo "        -p <snapshot>          : Use a portage snapshot intead of mounting /usr/portage from host system."
@@ -59,19 +63,29 @@ function usage() {
     exit 1
 }
 
-while getopts ":bi:l:hnop:s:t:v:" Option; do
+while getopts ":bd:i:k:l:hnop:s:t:v:" Option; do
     case ${Option} in
         b) BOOTLOADER=${OPTARG}
-           if [ "${BOOTLOADER}" != "grub" -a  "${BOOTLOADER}" != "isolinux" ]; then
+           if [ "${BOOTLOADER}" != "grub" -a  "${BOOTLOADER}" != "isolinux" -a "${BOOTLOADER}" != "syslinux" ]; then
                usage
+           fi;;
+        d) DEVICETYPE=${OPTARG}
+           if [ "${DEVICETYPE}" != "CD" -a  "${DEVICETYPE}" != "USB" ]; then
+               usage
+           fi
+           if [ "${DEVICETYPE}" = "CD" -a "${BOOTLOADER}" = "syslinux" ]; then
+               BOOTLOADER="isolinux"
+           fi
+           if [ "${DEVICETYPE}" = "USB" -a "${BOOTLOADER}" = "isolinux" ]; then
+               BOOTLOADER="syslinux"
            fi;;
         h) usage;;
         i) CREATE_ISO=${OPTARG}
            if [ "${CREATE_ISO}" != "no" -a  "${CREATE_ISO}" != "yes" ]; then
                usage
            fi;;
-        l) SQUASHFS_LZMA=${OPTARG}
-           if [ "${SQUASHFS_LZMA}" != "no" -a  "${SQUASHFS_LZMA}" != "yes" ]; then
+        k) USE_KERN_PKG=${OPTARG}
+           if [ "${USE_KERN_PKG}" != "no" -a  "${USE_KERN_PKG}" != "yes" ]; then
                usage
            fi;;
         n) CLEAN_SOURCE="no";;
@@ -99,18 +113,18 @@ function unmount_all() {
 }
 
 function die() {
-    echo -e "\nError: $1\n\n"
+    echo -e "\nError: ${1}\n\n"
     unmount_all
     exit 1
 }
 
 function check_error() {
-    [ "$?" != "0" ] && die $1
+    [ "$?" != "0" ] && die ${1}
 }
 
 function safe_mount() {
     local mntpnts=`mount | awk '{print $3}'`
-    [ "`echo ${mntpnts} | grep $2`" != "$2" ] && mount --bind $1 $2
+    [ "`echo ${mntpnts} | grep $2`" != "$2" ] && mount --bind ${1} $2
 }
 
 function empty_dir() {
@@ -124,14 +138,14 @@ function empty_dir() {
 function unpack() {
     [ ! -e ${1} ] && die "${1} does not exist"
 
-    msg="unpacking $1"
+    msg="unpacking ${1}"
     if [ "$2" != "" ]; then
         msg="${msg} to $2"
     fi
 
     echo ${msg}
 
-    fparts=$(echo | basename $1 | sed s/"\."/" "/g)
+    fparts=$(echo | basename ${1} | sed s/"\."/" "/g)
     afparts=($fparts)
     n=${#afparts[@]}
     ext=${afparts[$((n-1))]}
@@ -143,11 +157,15 @@ function unpack() {
     fi
 
     case $ext in
-        "bz2") tar jxf $1 ${TDIR};;
-        "gz") tar zxf $1 ${TDIR};;
-        "lzma") lzma -cd $1 | tar xf - ${TDIR};;
-        "tar") tar xf $1 ${TDIR};;
-        *) echo "$1 has the unknown extension ${ext}"
+        "bz2") tar jxf ${1} ${TDIR};;
+        "tbz2") tar jxf ${1} ${TDIR};;
+        "gz") tar zxf ${1} ${TDIR};;
+        "tgz") tar zxf ${1} ${TDIR};;
+        "lzma") lzma -cd ${1} | tar xf - ${TDIR};;
+        "xz") xz -cd ${1} | tar xf - ${TDIR};;
+        "7z") 7z -x ${1} -so | tar xf - ${TDIR};;
+        "tar") tar xf ${1} ${TDIR};;
+        *) echo "${1} has the unknown extension ${ext}"
            exit 1;;
     esac
     check_error ${msg}
@@ -176,7 +194,7 @@ function build_source() {
     mount --bind ${WORKDIR}/packages ${SOURCEDIR}/packages
     safe_mount /proc ${SOURCEDIR}/proc
     safe_mount /dev ${SOURCEDIR}/dev
-    safe_mount /sys ${SOURCEDIR}/sys 
+    safe_mount /sys ${SOURCEDIR}/sys
 
     mkdir -p ${SOURCEDIR}/usr/portage
 
@@ -186,12 +204,13 @@ function build_source() {
         [ -e ${SNAPSHOT} ] || die "${SNAPSHOT} does not exist"
         unpack ${SNAPSHOT} ${SOURCEDIR}/usr
     fi
-    DISTDIR=$(source /etc/make.conf; echo $DISTDIR)
+    DISTDIR=$(source /etc/make.conf; echo ${DISTDIR})
     [ "$DISTDIR" == "" ] && DISTDIR=/usr/portage/distfiles
 
+    mkdir -p ${DISTDIR}
     mkdir -p ${SOURCEDIR}/usr/portage/distfiles
 
-    safe_mount $DISTDIR ${SOURCEDIR}/usr/portage/distfiles
+    safe_mount ${DISTDIR} ${SOURCEDIR}/usr/portage/distfiles
 
     ##############################################################################
     #                                                                            #
@@ -205,26 +224,11 @@ function build_source() {
       echo ">sys-kernel/${KERNEL}" >> ${SOURCEDIR}/etc/portage/package.mask
     fi
 
-    if [ "${SQUASHFS_LZMA}" == "yes" ]; then
-        [ -e ${ARCHIVEDIR}/${SQLZMA} ] || die "missing ${ARCHIVEDIR}/${SQLZMA}"
-        [ -e ${ARCHIVEDIR}/${LZMASDK} ] || die "missing ${ARCHIVEDIR}/${LZMASDK}"
-        [ -e ${ARCHIVEDIR}/${SQFSTOOLS} ] || die "missing ${ARCHIVEDIR}/${SQFSTOOLS}"
-        [ -e ${ARCHIVEDIR}/sqcompile.sh ] || die "missing ${ARCHIVEDIR}/sqcompile.sh"
-        [ -e ${ARCHIVEDIR}/sqmakefile.patch ] || die "missing ${ARCHIVEDIR}/sqmakefile.patch"
-
-        mkdir -p ${SOURCEDIR}/tmp/squashfs-lzma
-        unpack ${ARCHIVEDIR}/${SQLZMA} ${SOURCEDIR}/tmp/squashfs-lzma
-        unpack ${ARCHIVEDIR}/${SQFSTOOLS} ${SOURCEDIR}/tmp/squashfs-lzma
-        mkdir -p ${SOURCEDIR}/tmp/squashfs-lzma/lzmasdk
-        unpack ${ARCHIVEDIR}/${LZMASDK} ${SOURCEDIR}/tmp/squashfs-lzma/lzmasdk
-        cp ${ARCHIVEDIR}/sqcompile.sh ${SOURCEDIR}/tmp/squashfs-lzma
-        cp ${ARCHIVEDIR}/sqmakefile.patch ${SOURCEDIR}/tmp/squashfs-lzma
-    fi
-
     cp /etc/resolv.conf ${SOURCEDIR}/etc
     cp chroot_build.sh ${SOURCEDIR}/root
     chmod +x ${SOURCEDIR}/root/chroot_build.sh
     cp livecd.conf ${SOURCEDIR}/root
+    echo USE_KERN_PKG=${USE_KERN_PKG} >> ${SOURCEDIR}/root/livecd.conf
 
     ##############################################################################
     #                                                                            #
@@ -256,7 +260,7 @@ function create_squashfs() {
     ##############################################################################
 
     echo "copying ${SOURCEDIR} to ${TGTFILES}"
-    rsync --delete-after --delete-excluded --archive --hard-links \
+    rsync --delete-after --delete-excluded --archive --hard-links --links \
           --exclude "tmp/*" --exclude "var/tmp/*" --exclude "var/cache/*" \
           --exclude "*.h" --exclude "*.a" --exclude "*.la" --exclude ".keep*" \
           --exclude "usr/portage" --exclude "etc/portage" \
@@ -272,12 +276,7 @@ function create_squashfs() {
     #                                                                            #
     ##############################################################################
     mkdir -p ${WORKDIR}/bin
-    [ -e ${WORKDIR}/isolinux/isolinux.bin ] || cp ${SOURCEDIR}/usr/lib/syslinux/isolinux.bin \
-                                               ${WORKDIR}/isolinux
-    [ -e ${WORKDIR}/bin/mksquashfs ] || cp ${SOURCEDIR}/tmp/squashfs-lzma/squashfs3.3/squashfs-tools/mksquashfs \
-                                        ${WORKDIR}/bin/
-    [ -e ${WORKDIR}/bin/unsquashfs ] || cp ${SOURCEDIR}/tmp/squashfs-lzma/squashfs3.3/squashfs-tools/unsquashfs \
-                                        ${WORKDIR}/bin/
+    cp ${SOURCEDIR}/usr/share/syslinux/isolinux.bin ${WORKDIR}/isolinux
 
     ##############################################################################
     #                                                                            #
@@ -297,8 +296,6 @@ function create_squashfs() {
     dirlist=""
     for i in `cat ${SOURCEDIR}/root/clean.list`; do
         if [ -f ${TGTFILES}/${i} ]; then
-            rm -f ${TGTFILES}/${i}
-        elif [ -L ${TGTFILES}/${i} ]; then
             rm -f ${TGTFILES}/${i}
         elif [ -d ${TGTFILES}/${i} ]; then
             dirlist="${dirlist} ${TGTFILES}/${i}"
@@ -337,12 +334,8 @@ function create_squashfs() {
     #    creating the squashfs image                                             #
     #                                                                            #
     ##############################################################################
-    rm -f ${TARGETDIR}/livecd.squashfs
-    if [ "${SQUASHFS_LZMA}" == "yes" ]; then
-        ${WORKDIR}/bin/mksquashfs ${TGTFILES}/ ${TARGETDIR}/livecd.squashfs -noappend
-    else
-        ${WORKDIR}/bin/mksquashfs ${TGTFILES}/ ${TARGETDIR}/livecd.squashfs -noappend -nolzma
-    fi
+    rm -f ${TARGETDIR}/${LIVETYPE}.squashfs
+    mksquashfs ${TGTFILES}/ ${TARGETDIR}/${LIVETYPE}.squashfs -noappend
 }
 
 function create_iso () {
@@ -354,11 +347,15 @@ function create_iso () {
     if [ "${BOOTLOADER}" == "isolinux" ]; then
         rsync -a --exclude ".svn" --exclude ".svn/*" ${WORKDIR}/isolinux ${TARGETDIR}
 
-        cp ${SOURCEDIR}/boot/kernel-genkernel-x86* ${TARGETDIR}/isolinux/vmlinuz
-        cp ${SOURCEDIR}/boot/initramfs-genkernel-x86* ${TARGETDIR}/isolinux/initrd.igz
+        cp ${SOURCEDIR}/boot/kernel-* ${TARGETDIR}/isolinux/vmlinuz
+        cp ${SOURCEDIR}/boot/initramfs-* ${TARGETDIR}/isolinux/initrd.igz
         #cp /boot/memtest86plus/memtest.bin ${TARGETDIR}/isolinux
     else
         rsync -a --exclude ".svn" --exclude ".svn/*" ${SOURCEDIR}/boot ${TARGETDIR}
+    fi
+
+    if [ -d "${WORKDIR}/data" ]; then
+        rsync -a --exclude ".svn" --exclude ".svn/*" ${WORKDIR}/data ${TARGETDIR}
     fi
 
     touch ${TARGETDIR}/livecd
@@ -378,15 +375,51 @@ function create_iso () {
     fi
 }
 
+function create_archive () {
+    ##############################################################################
+    #                                                                            #
+    #    prepare ISO target                                                      #
+    #                                                                            #
+    ##############################################################################
+    if [ "${BOOTLOADER}" == "isolinux" -o "${BOOTLOADER}" == "syslinux" ]; then
+        rsync -a --exclude ".svn" --exclude ".svn/*" ${WORKDIR}/${BOOTLOADER} ${TARGETDIR}
+
+        cp ${SOURCEDIR}/boot/kernel-* ${TARGETDIR}/${BOOTLOADER}/vmlinuz
+        cp ${SOURCEDIR}/boot/initramfs-* ${TARGETDIR}/${BOOTLOADER}/initrd.igz
+    else
+        rsync -a --exclude ".svn" --exclude ".svn/*" ${SOURCEDIR}/boot ${TARGETDIR}
+    fi
+
+    if [ -d "${WORKDIR}/data" ]; then
+        rsync -a --exclude ".svn" --exclude ".svn/*" ${WORKDIR}/data ${TARGETDIR}
+    fi
+
+    touch ${TARGETDIR}/${LIVETYPE}
+
+    ##############################################################################
+    #                                                                            #
+    #    building the archive                                                    #
+    #                                                                            #
+    ##############################################################################
+
+    tar -C ${TARGETDIR} -cjf ${LIVETYPE}.tar.bz2 . --exclude files
+}
+
 ##############################################################################
 #                                                                            #
 #    main                                                                    #
 #                                                                            #
 ##############################################################################
+user=`whoami`
+[ "${user}" == "root" ] || die "You must be root to run this script"
+
 [ -e "${WORKDIR}/create_livecd.sh" ] || die "You must run 'create_livecd.sh' in its directory"
 [ -e "${WORKDIR}/livecd.conf" ] || die "Missing 'livecd.conf'"
 source ${WORKDIR}/livecd.conf
 
+[ "${DEVICETYPE}" == "CD" ] && LIVETYPE="livecd"
+[ "${DEVICETYPE}" == "USB" ] && LIVETYPE="liveusb"
 [ "${CLEAN_SOURCE}" == "yes" ] && build_source
 [ "${CREATE_SQUASH}" == "yes" ] && create_squashfs
 [ "${CREATE_ISO}" == "yes" ] && create_iso
+[ "${CREATE_ARCHIVE}" == "yes" ] && create_archive
