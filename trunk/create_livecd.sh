@@ -101,6 +101,25 @@ while getopts ":bd:i:k:l:hnop:s:t:v:" Option; do
     esac
 done
 
+function die() {
+    echo -e "\nError: ${1}\n\n"
+    unmount_all
+    exit 1
+}
+
+function check_error() {
+    [ "$?" != "0" ] && die ${1}
+}
+
+function check_prog() {
+    local path=`which ${1} 2>/dev/null`
+    if [ "${path}" != "" ]; then
+        true
+    else
+        false
+    fi
+}
+
 function unmount_all() {
     umount ${SOURCEDIR}/proc >/dev/null 2>/dev/null
     umount ${SOURCEDIR}/dev >/dev/null 2>/dev/null
@@ -110,16 +129,6 @@ function unmount_all() {
         umount ${SOURCEDIR}/usr/portage >/dev/null 2>/dev/null
     fi
     umount ${SOURCEDIR}/packages >/dev/null 2>/dev/null
-}
-
-function die() {
-    echo -e "\nError: ${1}\n\n"
-    unmount_all
-    exit 1
-}
-
-function check_error() {
-    [ "$?" != "0" ] && die ${1}
 }
 
 function safe_mount() {
@@ -138,17 +147,17 @@ function empty_dir() {
 function unpack() {
     [ ! -e ${1} ] && die "${1} does not exist"
 
-    msg="unpacking ${1}"
+    local msg="unpacking ${1}"
     if [ "$2" != "" ]; then
         msg="${msg} to $2"
     fi
 
     echo ${msg}
 
-    fparts=$(echo | basename ${1} | sed s/"\."/" "/g)
-    afparts=($fparts)
-    n=${#afparts[@]}
-    ext=${afparts[$((n-1))]}
+    local fparts=$(echo | basename ${1} | sed s/"\."/" "/g)
+    local afparts=($fparts)
+    local n=${#afparts[@]}
+    local ext=${afparts[$((n-1))]}
 
     if [ "$2" == "" ]; then
         TDIR=""
@@ -156,7 +165,16 @@ function unpack() {
         TDIR=" -C $2 "
     fi
 
-    case $ext in
+    case ${ext} in
+        "lzma"|"xz"|"7z") if ! (check_prog ${ext}); then
+                               echo "Program ${ext} not found. Please install."
+                               exit 1
+                          fi;;
+        *) echo "${1} has the unknown extension ${ext}"
+           exit 1;;
+    esac
+
+    case ${ext} in
         "bz2") tar jxf ${1} ${TDIR};;
         "tbz2") tar jxf ${1} ${TDIR};;
         "gz") tar zxf ${1} ${TDIR};;
@@ -410,6 +428,7 @@ function create_archive () {
 #    main                                                                    #
 #                                                                            #
 ##############################################################################
+
 user=`whoami`
 [ "${user}" == "root" ] || die "You must be root to run this script"
 
