@@ -170,6 +170,7 @@ function unpack() {
                                echo "Program ${ext} not found. Please install."
                                exit 1
                           fi;;
+        "gz"|"tgz"|"bz2"|"tbz2"|"tar");;
         *) echo "${1} has the unknown extension ${ext}"
            exit 1;;
     esac

@@ -105,7 +105,7 @@ function build_kernel() {
     #GENKERNOPTS="--dmraid --evms --luks --lvm --arch-override=x86 --minkernpackage=${KERNELPKG} --modulespackage=${MODULESPKG}"
     GENKERNOPTS="--dmraid --luks --lvm --arch-override=x86 --minkernpackage=${KERNELPKG} --modulespackage=${MODULESPKG}"
 
-    if [ -e ${KERNELPKG}  -a  -e ${MODULESPKG} ]; then
+    if [ "${USE_KERN_PKG}" == "yes" -a -e ${KERNELPKG}  -a  -e ${MODULESPKG} ]; then
         tar jxf ${KERNELPKG} -C /boot
         [ "$?" != "0" ] && die "unpacking of ${KERNELPKG} failed"
         tar jxf ${MODULESPKG} -C /
